@@ -11,6 +11,7 @@
                 "docker-compose",
                 "duperemove",
                 "firewalld",
+                "freeipa-client",
                 "podman",
                 "podman-compose",
                 "tailscale",
