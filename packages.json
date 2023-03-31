@@ -2,6 +2,9 @@
     "all": {
         "include": {
             "all": [
+                "clevis",
+                "clevis-dracut",
+                "clevis-udisks2",
                 "cockpit-networkmanager",
                 "cockpit-podman",
                 "cockpit-selinux",
