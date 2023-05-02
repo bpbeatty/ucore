@@ -11,13 +11,19 @@
                 "cockpit-storaged",
                 "cockpit-system",
                 "distrobox",
-                "docker-compose",
                 "duperemove",
                 "firewalld",
                 "freeipa-client",
+                "lzop",
+                "mbuffer",
+                "mhash",
+                "perl-Capture-Tiny",
+                "perl-Config-IniFiles",
                 "podman",
                 "podman-compose",
                 "qemu-guest-agent",
+                "pv",
+                "tmux",
                 "vim",
                 "wget",
                 "wireguard-tools",
@@ -26,10 +32,7 @@
             ]
         },
         "exclude": {
-            "all": [
-                "toolbox",
-                "zincati"
-            ]
+            "all": []
         }
     }
 }
