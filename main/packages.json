@@ -26,6 +26,7 @@
                 "qemu-guest-agent",
                 "tmux",
                 "vim",
+                "vim-default-editor",
                 "wget",
                 "wireguard-tools",
                 "xdg-dbus-proxy",
@@ -33,7 +34,9 @@
             ]
         },
         "exclude": {
-            "all": []
+            "all": [
+                "nano-default-editor"
+            ]
         }
     }
 }
