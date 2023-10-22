@@ -10,7 +10,24 @@ WARNING: This image has **not** been heavily tested, though the underlying compo
 
 ## Images & Features
 
+### `fedora-coreos`
+
+**NOTE: formerly named `fedora-coreos-zfs`, that version of the image did not offer the nvidia option. Please update with `rpm-ostree rebase`.**
+
+A generic [Fedora CoreOS image](https://quay.io/repository/fedora/fedora-coreos?tab=tags) image with choice of add-on kernel modules:
+
+- [nvidia versions](#tag-matrix) add:
+  - [nvidia driver](https://github.com/ublue-os/ucore-kmods) - latest driver (currently version 535) built from negativo17's akmod package
+  - [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/sample-workload.html) - latest toolkit which supports both root and rootless podman containers and CDI
+  - [nvidia container selinux policy](https://github.com/NVIDIA/dgx-selinux/tree/master/src/nvidia-container-selinux) - allows using `--security-opt label=type:nvidia_container_t` for some jobs (some will still need `--security-opt label=disable` as suggested by nvidia)
+- [ZFS versions](#tag-matrix) add:
+  - [ZFS driver](https://github.com/ublue-os/ucore-kmods) - latest driver (currently pinned to 2.1.x series)
+
+*NOTE: currently, zincati fails to start on systems with OCI based deployments (like uCore). Upstream efforts are active to correct this.*
+
 ### `ucore`
+
+Suitable for running containerized workloads on either baremetal or virtual machines, this image tries to stay lightweight  but functional for multiple use cases, including that of a storage server (NAS).
 
 - Starts with a [Fedora CoreOS image](https://quay.io/repository/fedora/fedora-coreos?tab=tags)
 - Adds the following:
@@ -18,44 +35,47 @@ WARNING: This image has **not** been heavily tested, though the underlying compo
   - [distrobox](https://github.com/89luca89/distrobox)
   - [duperemove](https://github.com/markfasheh/duperemove)
   - guest VM agents (`qemu-guest-agent` and `open-vm-tools`)
-  - moby-engine(docker), docker-compose and podman-compose
+  - intel wifi firmware - CoreOS omits this despite including atheros wifi firmware... hardware enablement FTW
   - [mergerfs](https://github.com/trapexit/mergerfs)
-  - sanoid/syncoid dependencies - see below for details
-  - [tailscale](https://tailscale.com) and [wireguard-tools](https://www.wireguard.com)
+  - moby-engine(docker), docker-compose and podman-compose
+  - [snapraid](https://www.snapraid.it/)
+  - [wireguard-tools](https://www.wireguard.com)
   - [tmux](https://github.com/tmux/tmux/wiki/Getting-Started)
-  - [ZFS](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora/index.html) (optional)
+  - udev rules enabling full functionality on some [Realtek 2.5Gbit USB Ethernet](https://github.com/wget/realtek-r8152-linux/) devices
+- Optional [nvidia versions](#tag-matrix) add:
+  - [nvidia driver](https://github.com/ublue-os/ucore-kmods) - latest driver (currently version 535) built from negativo17's akmod package
+  - [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/sample-workload.html) - latest toolkit which supports both root and rootless podman containers and CDI
+  - [nvidia container selinux policy](https://github.com/NVIDIA/dgx-selinux/tree/master/src/nvidia-container-selinux) - allows using `--security-opt label=type:nvidia_container_t` for some jobs (some will still need `--security-opt label=disable` as suggested by nvidia)
+- Optional [ZFS versions](#tag-matrix) add:
+  - [sanoid/syncoid dependencies](https://github.com/jimsalterjrs/sanoid) - [see below](#zfs) for details
+  - [ZFS driver](https://github.com/ublue-os/ucore-kmods) - latest driver (currently pinned to 2.1.x series)
 - Enables staging of automatic system updates via rpm-ostreed
-- Disables Zincati auto upgrade/reboot service
-  - *NOTE: currently, zincati fails to start on systems with OCI based deployments (like uCore). Upstream efforts are active to correct this.*
 - Enables password based SSH auth (required for locally running cockpit web interface)
-- Suitable for use on bare metal or virtual machines to run containerized workloads
+- Disables Zincati auto upgrade/reboot service
 
 Note: per [cockpit instructions](https://cockpit-project.org/running.html#coreos) the cockpit-ws RPM is **not** installed, rather it is provided as a pre-defined systemd service which runs a podman container.
 
 ### `ucore-hci`
 
-- Starts with `ucore` to give you everything above, PLUS:
+Hyper-Coverged Infrastructure(HCI) refers to storage and virtualization in one place... So this image primarily adds the virtualization stack.
+
+
+- Starts with `ucore` to give you everything above, plus:
 - Adds the following:
-  - libvirt-daemon-kvm: KVM hypervisor management
+  - [cockpit-machines](https://github.com/cockpit-project/cockpit-machines): Cockpit GUI for managing virtual machines
+  - [libvirt-client](https://libvirt.org/): `virsh` command-line utility for managing virtual machines
+  - [libvirt-daemon-kvm](https://libvirt.org/): libvirt KVM hypervisor management
   - virt-install: command-line utility for installing virtual machines
-  - libvirt-client: `virsh` command-line utility for managing virtual machines
-  - cockpit-machines: Cockpit GUI for managing virtual machines
-- Suitable for use on bare metal to run as a hypervisor in addition to running containerized workloads
 
 Note: Fedora now uses `DefaultTimeoutStop=45s` for systemd services which could cause `libvirtd` to quit before shutting down slow VMs. Consider adding `TimeoutStopSec=120s` as an override for `libvirtd.service` if needed.
-
-### `fedora-coreos-zfs`
-
-- A generic [Fedora CoreOS image](https://quay.io/repository/fedora/fedora-coreos?tab=tags) image
-- Adds only [ZFS](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora/index.html) from the [ucore-kmods image](https://github.com/ublue-os/ucore-kmods)
 
 ## Tips and Tricks
 
 ### Immutability and Podman
 
-These images are immutable, you can't, and really shouldn't, install packages like in a mutable "normal" distribution.
+These images are immutable and you probably shouldn't install packages like in a mutable "normal" distribution.
 
-CoreOS expects the user to run services using [podman](https://podman.io). `moby-engine`, the free Docker implementation, is installed for those who desire docker instead of podman.
+Fedora CoreOS expects the user to run services using [podman](https://podman.io). `moby-engine`, the free Docker implementation, is installed for those who desire docker instead of podman.
 
 ### Default Services
 
@@ -73,6 +93,13 @@ Note: `libvirtd` is enabled by default, but only starts when triggerd by it's so
 
 NOTE: CoreOS [cautions against](https://docs.fedoraproject.org/en-US/fedora-coreos/faq/#_can_i_run_containers_via_docker_and_podman_at_the_same_time) running podman and docker containers at the same time.  Thus, `docker.socket` is disabled by default to prevent accidental activation of the docker daemon, given podman is the default.
 
+### Podman and FirewallD
+
+Podman and firewalld [can sometimes conflict](https://github.com/ublue-os/ucore/issues/90) such that a `firewall-cmd --reload` removes firewall rules generated by podman.
+
+A service is included to mitigate this by monitoring for firewall reload events on dbus and then reloading podman networks. If needed, enable like so: `systemctl enable --now podman-firewalld-reload.service`
+
+
 ### Distrobox
 
 Users may use [distrobox](https://github.com/89luca89/distrobox) to run images of mutable distributions where applications can be installed with traditional package managers. This may be useful for installing interactive utilities such has `htop`, `nmap`, etc. As stated above, however, *services* should run as containers.
@@ -87,9 +114,23 @@ sanoid/syncoid is a great tool for manual and automated snapshot/transfer of ZFS
 
 `ucore` has pre-install all the (lightweight) required dependencies (perl-Config-IniFiles perl-Data-Dumper perl-Capture-Tiny perl-Getopt-Long lzop mbuffer mhash pv), such that a user wishing to use sanoid/syncoid only need install the "sbin" files and create configuration/systemd units for it.
 
+### NVIDIA
+
+If you installed an image with `-nvidia` in the tag, the nvidia kernel module, basic CUDA libraries, and the nvidia-container-toolkit are all are pre-installed.
+
+Note, this does NOT add desktop graphics services to your images, but it DOES enable your compatible nvidia GPU to be used for nvdec, nvenc, CUDA, etc. Since this is CoreOS and it's primarily intended for container workloads the [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html) should be well understood.
+
+Note the included driver is the [latest nvidia driver](https://github.com/negativo17/nvidia-driver/blob/master/nvidia-driver.spec) as bundled by [negativo17](https://negativo17.org/nvidia-driver/). This package was chosen over rpmfusion's due to it's granular packages which allow us to install just the minimal `nvidia-driver-cuda` packages.
+
+#### Other NVIDIA Drivers
+
+If you need an older (or different) driver, consider looking at the [container-toolkit-fcos driver](https://hub.docker.com/r/fifofonix/driver/). It provides pre-bundled container images with nvidia drivers for FCOS, allowing auto-build/loading of the nvidia driver IN podman, at boot, via a systemd service.
+
+If going this path, you likely won't want to use the `ucore` `-nvidia` image, but would use the suggested systemd service. The nvidia container toolkit will still be required but can by layered easily.
+
 ### ZFS
 
-The ZFS kernel module and tools are pre-installed, but like other services, ZFS is not pre-configured to load on default.
+If you installed an image with `-zfs` in the tag (or `fedora-coreos-zfs`), the ZFS kernel module and tools are pre-installed, but like other services, ZFS is not pre-configured to load on default.
 
 Load it with the command `modprobe zfs` and use `zfs` and `zpool` commands as desired.
 
@@ -144,11 +185,15 @@ To rebase an Fedora CoreOS machine to the latest uCore (stable):
 sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/bpbeatty/IMAGE:TAG
 ```
 
+#### Tag Matrix
 | IMAGE | TAG |
 |-|-|
-| [`ucore`](#ucore) | `stable`, `testing`, `stable-zfs`, `testing-zfs` |
-| [`ucore-hci`](#ucore-hci) | `stable`, `testing`, `stable-zfs`, `testing-zfs` |
-| [`fedora-coreos-zfs`](#fedora-coreos-zfs) | `stable`, `testing` |
+| [`fedora-coreos`](#fedora-coreos) - *stable* | `stable-nvidia`, `stable-zfs`,`stable-nvidia-zfs` |
+| [`fedora-coreos`](#fedora-coreos) - *testing* | `testing-nvidia`, `testing-zfs`, `testing-nvidia-zfs` |
+| [`ucore`](#ucore) - *stable* | `stable`, `stable-nvidia`, `stable-zfs`,`stable-nvidia-zfs` |
+| [`ucore`](#ucore) - *testing* | `testing`, `testing-nvidia`, `testing-zfs`, `testing-nvidia-zfs` |
+| [`ucore-hci`](#ucore-hci) - *stable* | `stable`, `stable-nvidia`, `stable-zfs`,`stable-nvidia-zfs` |
+| [`ucore-hci`](#ucore-hci) - *testing* | `testing`, `testing-nvidia`, `testing-zfs`, `testing-nvidia-zfs` |
 
 ### Install with Auto-Rebase
 
