@@ -31,11 +31,21 @@
                 "wireguard-tools",
                 "xdg-dbus-proxy",
                 "xdg-user-dirs"
+            ],
+            "ucore-hci": [
+                "cockpit-machines",
+                "libvirt-client",
+                "libvirt-daemon-kvm",
+                "nfs-utils",
+                "virt-install"
             ]
         },
         "exclude": {
             "all": [
                 "nano-default-editor"
+            ],
+            "ucore-hci": [
+                "nfs-utils-coreos"
             ]
         }
     }
