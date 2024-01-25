@@ -23,7 +23,6 @@
                 "podman-compose",
                 "qemu-guest-agent",
                 "snapraid",
-                "tailscale",
                 "tmux",
                 "vim",
                 "vim-default-editor",
@@ -43,6 +42,7 @@
         "exclude": {
             "all": [
                 "nano-default-editor",
+                "nfs-utils",
                 "ublue-os-signing"
             ],
             "ucore-hci": [
