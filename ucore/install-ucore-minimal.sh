@@ -33,7 +33,9 @@ if [[ "-zfs" == "${ZFS_TAG}" ]]; then
       mhash \
       perl-Capture-Tiny \
       perl-Config-IniFiles \
+      perl-Data-Dumper \
       perl-Getopt-Long \
+      perl-Sys-Hostname \
       pv
     # for some reason depmod ran automatically with zfs 2.1 but not with 2.2
     depmod -A ${KERNEL}
@@ -59,7 +61,5 @@ fi
 curl -L https://pkgs.tailscale.com/stable/fedora/tailscale.repo -o /etc/yum.repos.d/tailscale.repo
 
 # install packages.json stuffs
+export IMAGE_NAME=ucore-minimal
 /tmp/packages.sh
-
-# install packages direct from github
-/tmp/github-release-install.sh trapexit/mergerfs fc.x86_64

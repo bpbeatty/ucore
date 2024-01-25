@@ -5,28 +5,33 @@
                 "clevis",
                 "clevis-dracut",
                 "clevis-udisks2",
+                "vim",
+                "vim-default-editor"
+            ],
+            "ucore-minimal": [
                 "cockpit-networkmanager",
                 "cockpit-podman",
                 "cockpit-selinux",
-                "cockpit-storaged",
                 "cockpit-system",
-                "dbus-tools",
-                "distrobox",
-                "duperemove",
                 "firewalld",
-                "iwlegacy-firmware",
-                "iwlwifi-dvm-firmware",
-                "iwlwifi-mvm-firmware",
                 "open-vm-tools",
                 "podman",
                 "podman-compose",
                 "qemu-guest-agent",
-                "snapraid",
                 "tmux",
-                "vim",
-                "vim-default-editor",
                 "wget",
-                "wireguard-tools",
+                "wireguard-tools"
+            ],
+            "ucore": [
+                "cockpit-storaged",
+                "distrobox",
+                "duperemove",
+                "iwlegacy-firmware",
+                "iwlwifi-dvm-firmware",
+                "iwlwifi-mvm-firmware",
+                "pciutils",
+                "snapraid",
+                "usbutils",
                 "xdg-dbus-proxy",
                 "xdg-user-dirs"
             ],
@@ -43,6 +48,8 @@
                 "nano-default-editor",
                 "ublue-os-signing"
             ],
+            "ucore-minimal": [],
+            "ucore": [],
             "ucore-hci": [
                 "nfs-utils-coreos"
             ]
