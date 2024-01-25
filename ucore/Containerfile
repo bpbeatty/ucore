@@ -31,6 +31,10 @@ RUN export IMAGE_NAME=ucore \
     && mkdir -p /tmp /var/tmp \
     && chmod -R 1777 /tmp /var/tmp
 
+## bpbeatty signing files and keys
+COPY --from=ghcr.io/bpbeatty/signing:latest /rpms /tmp/rpms
+RUN rpm-ostree install /tmp/rpms/*.rpm
+
 COPY --from=docker.io/docker/compose-bin:latest /docker-compose /usr/bin/docker-compose
 
 
