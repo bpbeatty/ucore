@@ -14,7 +14,6 @@
                 "distrobox",
                 "duperemove",
                 "firewalld",
-                "freeipa-client",
                 "iwlegacy-firmware",
                 "iwlwifi-dvm-firmware",
                 "iwlwifi-mvm-firmware",
@@ -42,7 +41,6 @@
         "exclude": {
             "all": [
                 "nano-default-editor",
-                "nfs-utils",
                 "ublue-os-signing"
             ],
             "ucore-hci": [
