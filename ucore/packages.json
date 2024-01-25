@@ -42,7 +42,8 @@
         },
         "exclude": {
             "all": [
-                "nano-default-editor"
+                "nano-default-editor",
+                "ublue-os-signing"
             ],
             "ucore-hci": [
                 "nfs-utils-coreos"
