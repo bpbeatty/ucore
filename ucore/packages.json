@@ -5,6 +5,7 @@
                 "clevis",
                 "clevis-dracut",
                 "clevis-udisks2",
+                "gasket-dkms",
                 "vim",
                 "vim-default-editor"
             ],

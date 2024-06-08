@@ -19,7 +19,7 @@ ARG DOCKER_COMPOSE_VERSION=v2.24.7
 COPY --from=${KMOD_SRC} /rpms/kmods/*.rpm /tmp/rpms/
 COPY --from=${KMOD_SRC} /rpms/kmods/nvidia/*.rpm /tmp/rpms/nvidia/
 COPY --from=${KMOD_SRC} /rpms/kmods/zfs/*.rpm /tmp/rpms/zfs/
-## bpbeatty signing files and keys
+# bpbeatty signing files and keys
 COPY --from=ghcr.io/bpbeatty/config:latest /rpms/bpbeatty-signing.noarch.rpm /tmp/rpms/bpbeatty/
 
 COPY *.sh /tmp/

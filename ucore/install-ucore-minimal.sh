@@ -19,6 +19,9 @@ fi
 # add the ucore copr repo
 curl -L https://copr.fedorainfracloud.org/coprs/ublue-os/ucore/repo/fedora/ublue-os-ucore-fedora.repo -o /etc/yum.repos.d/ublue-os-ucore-fedora.repo
 
+# add the copr repo in support of gasket-dkms
+curl -L https://copr.fedorainfracloud.org/coprs/kylegospo/google-coral-dkms/repo/fedora/ -o /etc/yum.repos.d/kylegospo-google-coral-dkms-fedora.repo
+
 # always disable cisco-open264 repo
 sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/fedora-cisco-openh264.repo
 
