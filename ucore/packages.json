@@ -1,25 +1,26 @@
 {
     "all": {
         "include": {
-            "all": [
+            "all": [],
+            "ucore-minimal": [
+                "bootc",
                 "clevis",
                 "clevis-dracut",
                 "clevis-udisks2",
-                "vim",
-                "vim-default-editor"
-            ],
-            "ucore-minimal": [
-                "bootc",
                 "cockpit-networkmanager",
                 "cockpit-podman",
                 "cockpit-selinux",
                 "cockpit-system",
+                "freeipa-client",
                 "firewalld",
+                "intel-compute-runtime",
                 "open-vm-tools",
                 "podman",
                 "podman-compose",
                 "qemu-guest-agent",
                 "tmux",
+                "vim",
+                "vim-default-editor",
                 "wireguard-tools"
             ],
             "ucore": [
@@ -61,7 +62,9 @@
                 "nano-default-editor",
                 "ublue-os-signing"
             ],
-            "ucore-minimal": [],
+            "ucore-minimal": [
+                "nfs-utils-coreos"
+            ],
             "ucore": [
                 "nfs-utils-coreos"
             ],
