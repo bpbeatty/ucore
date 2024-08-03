@@ -5,6 +5,7 @@
                 "clevis",
                 "clevis-dracut",
                 "clevis-udisks2",
+                "freeipa-client",
                 "vim",
                 "vim-default-editor"
             ],
@@ -15,6 +16,7 @@
                 "cockpit-selinux",
                 "cockpit-system",
                 "firewalld",
+                "intel-compute-runtime",
                 "open-vm-tools",
                 "podman",
                 "podman-compose",
