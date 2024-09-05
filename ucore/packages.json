@@ -13,6 +13,7 @@
                 "cockpit-system",
                 "freeipa-client",
                 "firewalld",
+                "fwupd-efi",
                 "intel-compute-runtime",
                 "open-vm-tools",
                 "podman",
