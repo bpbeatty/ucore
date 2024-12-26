@@ -248,7 +248,7 @@ Fedora CoreOS expects the user to run services using [podman](https://podman.io)
 > [!IMPORTANT]
 > CoreOS [cautions against](https://docs.fedoraproject.org/en-US/fedora-coreos/faq/#_can_i_run_containers_via_docker_and_podman_at_the_same_time) running podman and docker containers at the same time.  Thus, `docker.socket` is disabled by default to prevent accidental activation of the docker daemon, given podman is the default.
 >
-> Ony run both simultaneously if you understand the risk.
+> Only run both simultaneously if you understand the risk.
 
 #### Podman and FirewallD
 
@@ -264,6 +264,7 @@ By default, UCore does not automatically start `restart: always` containers on s
 
 ```bash
 # Copy the system's podman-restart service to the user location
+mkdir -p /var/home/core/.config/systemd/user
 cp /lib/systemd/system/podman-restart.service /var/home/core/.config/systemd/user
 
 # Enable the user service
@@ -531,6 +532,20 @@ If you do forget to specify the mountpoint, or you need to change the mountpoint
 ```bash
 # zfs set mountpoint=/var/tank tank
 ```
+
+#### ZFS scrub timers
+
+It's good practice to run a `zpool scrub` periodically on ZFS pools to check and repair the integrity of data. This can be easily configured with ucore by enabling the timer. There are two timers available: weekly and monthly.
+
+```bash
+# Substitute <pool> with the name of the zpool
+systemctl enable --now zfs-scrub-weekly@<pool>.timer
+
+# Or to run it monthly:
+systemctl enable --now zfs-scrub-monthly@<pool>.timer
+```
+
+This can be enabled for multiple storage pools by enabling and starting a timer for each.
 
 #### Sanoid/Syncoid
 
