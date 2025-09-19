@@ -13,8 +13,7 @@ fi
 
 
 ## ALWAYS: regular post-install
-ln -s /usr/libexec/docker/cli-plugins/docker-compose /usr/bin/docker-compose
-
+systemctl disable coreos-oci-migration-motd.service
 systemctl disable docker.socket
 systemctl disable zincati.service
 
@@ -28,9 +27,6 @@ systemctl enable rpm-ostreed-automatic.timer
 systemctl enable qemu-guest-agent.service
 
 sed -i 's/#AutomaticUpdatePolicy.*/AutomaticUpdatePolicy=stage/' /etc/rpm-ostreed.conf
-
-# workaround to enable cockpit web logins
-rm /etc/ssh/sshd_config.d/40-disable-passwords.conf
 
 # workaround until distrobox patch for this makes it into repos
 ln -s  ../usr/share/zoneinfo/UTC /etc/localtime

@@ -11,6 +11,8 @@
                 "cockpit-podman",
                 "cockpit-selinux",
                 "cockpit-system",
+                "docker-buildx",
+                "docker-compose",
                 "freeipa-client",
                 "firewalld",
                 "fwupd-efi",
