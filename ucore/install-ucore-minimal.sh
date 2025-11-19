@@ -8,7 +8,6 @@ RELEASE="$(rpm -E %fedora)"
 pushd /tmp/rpms/kernel
 KERNEL_VERSION=$(find kernel-*.rpm | grep -P "kernel-(\d+\.\d+\.\d+)-.*\.fc${RELEASE}\.${ARCH}" | sed -E 's/kernel-//' | sed -E 's/\.rpm//')
 popd
-QUALIFIED_KERNEL="$(rpm -qa | grep -P 'kernel-(\d+\.\d+\.\d+)' | sed -E 's/kernel-//')"
 
 #### PREPARE
 # enable testing repos if not enabled on testing stream
@@ -40,34 +39,36 @@ dnf -y install /tmp/rpms/config/bpbeatty-signing*.rpm
 cp /usr/etc/containers/policy.json /etc/containers/policy.json
 rm -rf /usr/etc
 
-# Handle Kernel Skew with override replace
-if [[ "${KERNEL_VERSION}" == "${QUALIFIED_KERNEL}" ]]; then
-    echo "Installing signed kernel from kernel-cache."
-    cd /tmp
-    rpm2cpio /tmp/rpms/kernel/kernel-core-*.rpm | cpio -idmv
-    cp ./lib/modules/*/vmlinuz /usr/lib/modules/*/vmlinuz
-    cd /
-else
-    # Remove Existing Kernel
-    for pkg in kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra; do
-        if rpm -q $pkg >/dev/null 2>&1; then
-            rpm --erase $pkg --nodeps
-        fi
-    done
-    echo "Install kernel version ${KERNEL_VERSION} from kernel-cache."
-    dnf -y install \
-        /tmp/rpms/kernel/kernel-[0-9]*.rpm \
-        /tmp/rpms/kernel/kernel-core-*.rpm \
-        /tmp/rpms/kernel/kernel-modules-*.rpm
-fi
+# Replace Existing Kernel with packages from akmods cached kernel
+for pkg in kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra; do
+    if rpm -q $pkg >/dev/null 2>&1; then
+        rpm --erase $pkg --nodeps
+    fi
+done
+echo "Install kernel version ${KERNEL_VERSION} from kernel-cache."
+dnf -y install \
+    /tmp/rpms/kernel/kernel-[0-9]*.rpm \
+    /tmp/rpms/kernel/kernel-core-*.rpm \
+    /tmp/rpms/kernel/kernel-modules-*.rpm
+
+# Ensure kernel packages can't be updated by other dnf operations
+dnf versionlock add kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra
+
+# Regenerate initramfs, for new kernel; not including NVIDIA or ZFS kmods
+QUALIFIED_KERNEL="$(rpm -qa | grep -P 'kernel-(\d+\.\d+\.\d+)' | sed -E 's/kernel-//')"
+/usr/bin/dracut --no-hostonly --kver "$QUALIFIED_KERNEL" --reproducible -v --add ostree -f "/lib/modules/$QUALIFIED_KERNEL/initramfs.img"
+chmod 0600 "/lib/modules/$QUALIFIED_KERNEL/initramfs.img"
 
 ## ALWAYS: install ZFS (and sanoid deps)
+# uCore does not support ZFS as rootfs, thus does not provide it in the initramfs
 dnf -y install /tmp/rpms/akmods-zfs/kmods/zfs/*.rpm /tmp/rpms/akmods-zfs/kmods/zfs/other/zfs-dracut-*.rpm
 # for some reason depmod ran automatically with zfs 2.1 but not with 2.2
-depmod -a -v ${KERNEL_VERSION}
+echo "Update modules.dep, etc..."
+depmod -a "${KERNEL_VERSION}"
 
 ## CONDITIONAL: install NVIDIA
 if [[ "-nvidia" == "${NVIDIA_TAG}" ]]; then
+    # uCore expects NVIDIA drivers are able to hot load/unload, thus does not provide it in the initramfs
     # repo for nvidia rpms
     curl --fail --retry 15 --retry-all-errors -sSL https://negativo17.org/repos/fedora-nvidia.repo -o /etc/yum.repos.d/fedora-nvidia.repo
 
@@ -78,6 +79,11 @@ if [[ "-nvidia" == "${NVIDIA_TAG}" ]]; then
         /tmp/rpms/akmods-nvidia/kmods/kmod-nvidia*.rpm \
         nvidia-driver-cuda \
         nvidia-container-toolkit
+fi
+
+## CONDITIONAL: install packages specific to x86_64
+if [[ "x86_64" == "${ARCH}" ]]; then
+    dnf -y install intel-compute-runtime
 fi
 
 ## ALWAYS: install regular packages
