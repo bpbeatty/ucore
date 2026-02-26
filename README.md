@@ -45,6 +45,30 @@ Please take a look at the included modifications, and help us improve uCore if t
 
 ## Announcements
 
+### 2026.01.08 - uCore LTS Stream and LTS kernel sysext issue
+
+It's come to our attention that the most recent 6.12 LTS kernel, used in uCore stable builds, has broken sysext functionality.
+
+The issue is, when trying to run [system extensions](https://www.freedesktop.org/software/systemd/man/latest/systemd-sysext.html), the [overlayfs](https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html) mount fails.
+
+After attempting to start `systemd-sysext.service` you will see logs like these in dmesg, journal or service status outputs:
+```
+[   17.227606] overlayfs: maximum fs stacking depth exceeded
+```
+
+```
+Jan 07 10:06:17 localhost (sd-merge)[1191]: Failed to mount sysext (type overlay) on /run/systemd/sysext/overlay/usr (MS_RDONLY|MS_NODEV "lowerdir=/run/sy>
+Jan 07 10:06:17 localhost systemd-sysext[1177]: Failed to merge hierarchies
+```
+
+The breaking change occurred in uCore's `20251220` build which included the `6.12.63` kernel. LTS kernel `6.12.62`, last available in uCore's `20251218` build (and earlier patch revisions), did not exhibit this issue. It is unclear what causes the issue as no obvious changes in the kernel changelogs stand out as directly related.
+
+As far as we have seen, the LTS kernel is working fine for other use cases.
+
+The issue is [being tracked](https://github.com/ublue-os/ucore/issues/339).
+
+For now, the workaround will be to run uCore `stable` stream images. The decision has been made to restore the standard upstream kernel to `stable` stream builds and move LTS kernel to a new `lts` stream. For the forseeable future, we will keep `lts` stream builds for the "stable with LTS kernel" experience, and `stable` builds will retain the standard kernel.
+
 ### 2025.12.10 - NVIDIA 580 LTS and NVIDIA 590 Open
 
 Our NVIDIA upstream recently released an [NVIDIA 580 LTS repository](https://negativo17.org/nvidia-driver-580-lts-repository/)
@@ -155,7 +179,8 @@ The [tag matrix](#tag-matrix) includes combinations of the following:
 
 - `stable` - images based on Fedora CoreOS stable stream including zfs driver and tools
 - `testing` - images based on Fedora CoreOS testing stream including zfs driver and tools
-- `nvidia` - images which include latest nvidia driver and container runtime
+- `lts` - images based on Fedora CoreOS stable stream with longterm kernel, zfs driver and tools
+- `nvidia` - images which include latest open nvidia driver and container runtime
 - `nvidia-lts` - images which include LTS nvidia driver and container runtime
 
 ### Images
@@ -172,7 +197,7 @@ Suitable for running containerized workloads on either bare metal or virtual mac
   - guest VM agents (`qemu-guest-agent` and `open-vm-tools`))
   - [docker-buildx](https://github.com/docker/buildx) and [docker-compose](https://github.com/docker/compose) (versions matched to moby release) *docker(moby-engine) is pre-installed in CoreOS*
   - [podman-compose](https://github.com/containers/podman-compose) *podman is pre-installed in CoreOS*
-  - [tailscale](https://tailscale.com) and [wireguard-tools](https://www.wireguard.com)
+  - [wireguard-tools](https://www.wireguard.com)
   - [tmux](https://github.com/tmux/tmux/wiki/Getting-Started)
   - udev rules enabling full functionality on some [Realtek 2.5Gbit USB Ethernet](https://github.com/wget/realtek-r8152-linux/) devices
   - [ZFS driver](https://github.com/ublue-os/ucore-kmods) - latest driver (currently pinned to 2.2.x series) - [see below](#zfs) for details
@@ -208,7 +233,6 @@ This image builds on `ucore-minimal` but adds drivers, storage tools and utiliti
   - [samba](https://www.samba.org/) and samba-usershares to provide SMB sevices
   - [snapraid](https://www.snapraid.it/)
   - usbutils(and pciutils) - technically pciutils is pulled in by open-vm-tools in ucore-minimal
-- Optional [ZFS versions](#tag-matrix) add:
   - [cockpit-zfs-manager](https://github.com/45Drives/cockpit-zfs-manager) (an interactive ZFS on Linux admin package for Cockpit)
   - [sanoid/syncoid dependencies](https://github.com/jimsalterjrs/sanoid) - [see below](#zfs) for details
 
@@ -230,10 +254,13 @@ Hyper-Coverged Infrastructure(HCI) refers to storage and hypervisor in one place
 
 | IMAGE | TAG |
 |-|-|
+| [`ucore-minimal`](#ucore-minimal) - *lts* | `lts`, `lts-nvidia`, `lts-nvidia-lts` |
 | [`ucore-minimal`](#ucore-minimal) - *stable* | `stable`, `stable-nvidia`, `stable-nvidia-lts` |
 | [`ucore-minimal`](#ucore-minimal) - *testing* | `testing`, `testing-nvidia`, `testing-nvidia-lts` |
+| [`ucore`](#ucore) - *lts* | `lts`, `lts-nvidia`, `lts-nvidia-lts` |
 | [`ucore`](#ucore) - *stable* | `stable`, `stable-nvidia`, `stable-nvidia-lts` |
 | [`ucore`](#ucore) - *testing* | `testing`, `testing-nvidia`, `testing-nvidia-lts` |
+| [`ucore-hci`](#ucore-hci) - *lts* | `lts`, `lts-nvidia`, `lts-nvidia-lts` |
 | [`ucore-hci`](#ucore-hci) - *stable* | `stable`, `stable-nvidia`, `stable-nvidia-lts` |
 | [`ucore-hci`](#ucore-hci) - *testing* | `testing`, `testing-nvidia`, `testing-nvidia-lts` |
 
@@ -358,7 +385,7 @@ sudo systemctl enable podman-restart.service
 
 To maintain this image's suitability as a minimal container host, most add-on services are not auto-enabled.
 
-To activate pre-installed services (`cockpit`, `docker`, `tailscaled`, etc):
+To activate pre-installed services (`cockpit`, `docker`, etc):
 
 ```bash
 sudo systemctl enable --now SERVICENAME.service
@@ -630,11 +657,44 @@ systemctl enable --now zfs-scrub-monthly@<pool>.timer
 
 This can be enabled for multiple storage pools by enabling and starting a timer for each.
 
-#### Sanoid/Syncoid
+#### Backups with Sanoid/Syncoid
 
-sanoid/syncoid is a great tool for manual and automated snapshot/transfer of ZFS datasets. However, there is not a current stable RPM, rather they provide [instructions on installing via git](https://github.com/jimsalterjrs/sanoid/blob/master/INSTALL.md#centos).
+sanoid/syncoid is a great tool for manual and automated snapshot/transfer of ZFS datasets.
 
-`ucore` has pre-install all the (lightweight) required dependencies (perl-Config-IniFiles perl-Data-Dumper perl-Capture-Tiny perl-Getopt-Long lzop mbuffer mhash pv), such that a user wishing to use sanoid/syncoid only need install the "sbin" files and create configuration/systemd units for it.
+`ucore` comes with sanoid and syncoid pre-installed. Sanoid already has both a systemd service and timer setup that can be enabled after the user creates a `sanoid.conf` file and places it in `/etc/sanoid`. The easiest way to create a `sanoid.conf` file is by copying the [template](https://github.com/jimsalterjrs/sanoid/blob/master/sanoid.conf) provided in the sanoid repo and altering it to reference the zfs pools/datasets to snapshot. The service & timer can then be enabled with `systemctl enable sanoid.timer`.
+
+For backups you will need to create a simple systemd service and timer that triggers syncoid to perform the zfs replication. This setup will vary depending on where the backups are going, but the syncoid job can be setup on the "source" (push backups), or the backup "target" (pull backups). There are [guides](https://discourse.practicalzfs.com/t/setting-up-syncoid-for-offsite-backup/1611/3) online, as well as the [sanoid repo](https://github.com/jimsalterjrs/sanoid/blob/master/INSTALL.md#RHEL/CentOS/AlmaLinux), that can help users navigate what they need to do for their setup.
+
+Bellow is a simple example of `syncoid.service` and `syncoid.timer` files in a "pull" configuration:
+
+```
+syncoid.service
+[Unit]
+Description=Call syncoid to pull backups from source to target
+
+[Service]
+Type=oneshot
+# Ids of user/group that has access to the ssh credentials needed to pull backups, usually 1000(core)
+User=1000
+Group=1000
+ExecStart=/usr/bin/bash -c "syncoid -r core@<remote_source>:<pool/dataset> local pool/dataset"
+# You can put another ExecStart here if you have other pool/datasets to move
+```
+
+```
+syncoid.timer
+[Unit]
+Description=Call syncoid to pull backups from source to target
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target
+```
+
+These files should be placed in `/etc/systemd/system/` and enabled with `systemctl enable syncoid.timer`.
 
 ## DIY
 
