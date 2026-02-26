@@ -15,6 +15,6 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     secrets: inherit
     with:
-      coreos_version: stable
+      ucore_stream: stable
       arch: "['x86_64']"
       # arch: "['aarch64','x86_64']"

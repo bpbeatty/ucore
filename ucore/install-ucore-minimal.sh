@@ -20,7 +20,7 @@ popd
 
 #### PREPARE
 # enable testing repos if not enabled on testing stream
-if [[ "testing" == "${COREOS_VERSION}" ]]; then
+if [[ "testing" == "${UCORE_STREAM}" ]]; then
 for REPO in $(ls /etc/yum.repos.d/fedora-updates-testing.repo); do
   if [[ "$(grep enabled=1 ${REPO} > /dev/null; echo $?)" == "1" ]]; then
     echo "enabling $REPO" &&
@@ -111,12 +111,39 @@ fi
 
 ## ALWAYS: install regular packages
 
-# add tailscale repo
-curl --fail --retry 15 --retry-all-errors -sSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo -o /etc/yum.repos.d/tailscale.repo
+# remove packages
+dnf -y remove nano-default-editor ublue-os-signing nfs-utils-coreos
 
-# install packages.json stuffs
-export IMAGE_NAME=ucore-minimal
-/ctx/packages.sh
+# install packages
+dnf -y install \
+    bootc \
+    clevis \
+    clevis-dracut \
+    clevis-udisks2 \
+    cockpit-files \
+    cockpit-networkmanager \
+    cockpit-podman \
+    cockpit-selinux \
+    cockpit-system \
+    docker-buildx \
+    docker-compose \
+    freeipa-client \
+    firewalld \
+    fwupd-efi \
+    open-vm-tools \
+    podman \
+    podman-compose \
+    pv \
+    qemu-guest-agent \
+    tmux \
+    vim \
+    vim-default-editor \
+    wireguard-tools
+
+# install tuned without weak deps (skip kernel-tools and python3-perf)
+dnf -y install --setopt=install_weak_deps=False \
+    tuned \
+    tuned-profiles-atomic
 
 # tweak os-release
 sed -i '/^PRETTY_NAME/s/"$/ (uCore minimal)"/' /usr/lib/os-release
