@@ -1,5 +1,6 @@
 # uCore <!-- omit in toc -->
 
+[![lts](https://github.com/bpbeatty/ucore/actions/workflows/build-lts.yml/badge.svg)](https://github.com/bpbeatty/ucore/actions/workflows/build-lts.yml)
 [![stable](https://github.com/bpbeatty/ucore/actions/workflows/build-stable.yml/badge.svg)](https://github.com/bpbeatty/ucore/actions/workflows/build-stable.yml)
 [![testing](https://github.com/bpbeatty/ucore/actions/workflows/build-testing.yml/badge.svg)](https://github.com/bpbeatty/ucore/actions/workflows/build-testing.yml)
 
@@ -16,8 +17,9 @@ Please take a look at the included modifications, and help us improve uCore if t
     - [`ucore`](#ucore)
     - [`ucore-hci`](#ucore-hci)
   - [Tag Matrix](#tag-matrix)
-- [Installation](#installation)
   - [Image Verification](#image-verification)
+  - [Software Bill of Materials](#software-bill-of-materials)
+- [Installation](#installation)
   - [Auto-Rebase Install](#auto-rebase-install)
   - [Manual Install/Rebase](#manual-installrebase)
 - [Tips and Tricks](#tips-and-tricks)
@@ -39,11 +41,17 @@ Please take a look at the included modifications, and help us improve uCore if t
     - [Other Drivers](#other-drivers)
   - [ZFS](#zfs)
     - [ZFS and immutable root filesystem](#zfs-and-immutable-root-filesystem)
-    - [Sanoid/Syncoid](#sanoidsyncoid)
+    - [Backups with Sanoid/Syncoid](#backups-with-sanoidsyncoid)
 - [DIY](#diy)
 - [Metrics](#metrics)
 
 ## Announcements
+
+### 2026.05.23 - uCore Fedora 44 Builds and LTS Kernel Update
+
+Fedora CoreOS stable moved to Fedora 44 recently, and now uCore builds have moved as well.
+
+The `lts` stream now uses the `longterm-6.18` kernel, superseding the earlier `longterm-6.12` kernel as our upstream for this kernel is does not build 6.12 for Fedora 44. The `stable` and `testing` streams continue to follow the stock Fedora CoreOS kernels for their respective streams.
 
 ### 2026.01.08 - uCore LTS Stream and LTS kernel sysext issue
 
