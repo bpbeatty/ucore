@@ -13,7 +13,7 @@ on:
         type: string
       force_build:
         description: >-
-          Bypass the RPM-only sentinel package-diff gate and run the full build for non-RPM changes
+          Force a full build for non-RPM or HCI-only changes, bypassing the RPM-only sentinel package-diff gate
         default: false
         required: false
         type: boolean
@@ -87,7 +87,7 @@ jobs:
           retention-days: 7
 
   sentinel_build:
-    name: "Sentinel: ucore-hci${{ matrix.nvidia_tag }}: ${{ matrix.arch }}"
+    name: "Sentinel: ucore${{ matrix.nvidia_tag }}: ${{ matrix.arch }}"
     if: (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.force_build)) && !cancelled()
     needs: [stream_info]
     runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-24.04' || matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' }}
@@ -105,6 +105,36 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure OCI runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          podman --version
+          if [[ -x /usr/bin/crun ]]; then
+              /usr/bin/crun --version
+          fi
+          if [[ -x /usr/local/bin/crun ]]; then
+              /usr/local/bin/crun --version
+          fi
+
+          runtime_path="$(podman info --format '{{.Host.OCIRuntime.Path}}')"
+          echo "Selected OCI runtime: ${runtime_path}"
+          # The 20260726 runner image pairs Podman 5.x with stale crun 1.14.1.
+          if [[ "${runtime_path}" == "/usr/bin/crun" && -x /usr/local/bin/crun ]]; then
+              sudo install -d -m 755 /etc/containers/containers.conf.d
+              printf '[engine.runtimes]\ncrun = ["/usr/local/bin/crun"]\n' \
+                  | sudo tee /etc/containers/containers.conf.d/00-fix-runtime.conf >/dev/null
+
+              runtime_path="$(podman info --format '{{.Host.OCIRuntime.Path}}')"
+              echo "Selected OCI runtime after workaround: ${runtime_path}"
+              if [[ "${runtime_path}" != "/usr/local/bin/crun" ]]; then
+                  echo "Failed to select /usr/local/bin/crun" >&2
+                  exit 1
+              fi
+          fi
 
       - name: Setup Just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
@@ -132,7 +162,8 @@ jobs:
         shell: bash
         run: |
           set -x
-          echo "IMAGE_NAME=ucore-hci" >> $GITHUB_ENV
+          # Ignore HCI-only churn; shared ucore packages still gate releases.
+          echo "IMAGE_NAME=ucore" >> $GITHUB_ENV
           echo "SENTINEL_TAG=sentinel-${{ inputs.ucore_stream }}${{ matrix.nvidia_tag }}-${{ matrix.arch }}" >> $GITHUB_ENV
           # -nvidia-open selects the akmods source; the compatible public tag remains -nvidia.
           NVIDIA_TAG="${{ matrix.nvidia_tag }}"
@@ -246,7 +277,8 @@ jobs:
           if [[ "${aggregate_changed}" == "true" ]]; then
               echo "Sentinel detected package changes; running full build."
           else
-              echo "No sentinel package changes detected; skipping full build."
+              echo "No ucore sentinel package changes detected; skipping full build." \
+                  "HCI-only changes require a manual force build."
           fi
 
   build_image:
@@ -280,6 +312,36 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure OCI runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          podman --version
+          if [[ -x /usr/bin/crun ]]; then
+              /usr/bin/crun --version
+          fi
+          if [[ -x /usr/local/bin/crun ]]; then
+              /usr/local/bin/crun --version
+          fi
+
+          runtime_path="$(podman info --format '{{.Host.OCIRuntime.Path}}')"
+          echo "Selected OCI runtime: ${runtime_path}"
+          # The 20260726 runner image pairs Podman 5.x with stale crun 1.14.1.
+          if [[ "${runtime_path}" == "/usr/bin/crun" && -x /usr/local/bin/crun ]]; then
+              sudo install -d -m 755 /etc/containers/containers.conf.d
+              printf '[engine.runtimes]\ncrun = ["/usr/local/bin/crun"]\n' \
+                  | sudo tee /etc/containers/containers.conf.d/00-fix-runtime.conf >/dev/null
+
+              runtime_path="$(podman info --format '{{.Host.OCIRuntime.Path}}')"
+              echo "Selected OCI runtime after workaround: ${runtime_path}"
+              if [[ "${runtime_path}" != "/usr/local/bin/crun" ]]; then
+                  echo "Failed to select /usr/local/bin/crun" >&2
+                  exit 1
+              fi
+          fi
 
       - name: Setup Just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
@@ -374,6 +436,13 @@ jobs:
               gen-sbom \
               "${{ env.IMAGE_NAME }}:${TAG_VERSION_ARCH}" \
               ../sbom.json
+
+      - name: Validate SBOM
+        if: needs.workflow_info.outputs.publish == 'true'
+        run: |
+          python3 .github/validate-sbom.py \
+              --sbom sbom.json \
+              --arch "${{ matrix.arch }}"
 
       - name: Package Provenance
         run: |
@@ -610,7 +679,7 @@ jobs:
       # Sign container
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
-          cosign-release: "v2.6.4"
+          cosign-release: "v2.6.5"
 
       - name: Login to GitHub Container Registry for cosign
         run: |
