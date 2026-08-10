@@ -1,41 +1,94 @@
-set dotenv-load := true
+set dotenv-load
 
 CI_BUILD_TAG := env("CI_BUILD_TAG", "")
-UCORE_STREAM := env("UCORE_STREAM", "stable")
-FEDORA_VERSION := env("FEDORA_VERSION", "44")
-IMAGE_REGISTRY := env("IMAGE_REGISTRY", "ghcr.io/bpbeatty")
-IMAGE_REGISTRY_SRC := env("IMAGE_REGISTRY_SRC", "ghcr.io/ublue-os")
+export AKMODS_REGISTRY := env("AKMODS_REGISTRY", "ghcr.io/ublue-os")
+export UCORE_STREAM := env("UCORE_STREAM", "stable")
+export FEDORA_VERSION := env("FEDORA_VERSION", "44")
+export IMAGE_REGISTRY := env("IMAGE_REGISTRY", "ghcr.io/bpbeatty")
 # lts uses stable CoreOS base with longterm kernel; stable and testing use stock coreos kernel
 COREOS_STREAM := if UCORE_STREAM == 'lts' { 'stable' } else { UCORE_STREAM }
-KERNEL_FLAVOR := env("KERNEL_FLAVOR", if UCORE_STREAM == 'lts' { "longterm-6.18" } else { 'coreos-' + COREOS_STREAM })
-KERNEL_VERSION := env("KERNEL_VERSION", "")
-NVIDIA_TAG := env("NVIDIA_TAG", "")
-SELINUX := path_exists('/sys/fs/selinux')
+export KERNEL_FLAVOR := env("KERNEL_FLAVOR", if UCORE_STREAM == 'lts' { "longterm-6.18" } else { 'coreos-' + COREOS_STREAM })
+export KERNEL_VERSION := env("KERNEL_VERSION", "")
+export NVIDIA_TAG := env("NVIDIA_TAG", "")
 SYFT_CMD := env("SYFT_CMD", "syft")
-TARGET_IMAGE := env("TARGET_IMAGE", "ucore-minimal")
+export TARGET_IMAGE := env("TARGET_IMAGE", "ucore-minimal")
 
 _default:
     @just --list --unsorted
 
+# Local VM test: boot an FCOS QEMU image, switch to non-direct-stream SOURCEs,
+# then TARGET, and reboot twice. Prereqs: KVM, podman, jq, curl, xz, qemu, OVMF.
+# Caches the FCOS qemu image under the user's cache directory.
+vm-test source_image target_image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    exec bash ./vm-test.sh "{{ source_image }}" "{{ target_image }}"
+
+check:
+    just --fmt --check
+    python3 -m unittest discover -s ../.github/tests -v
+
 upstream-version image:
     #!/usr/bin/env bash
-    version=$(skopeo inspect docker://"{{ image }}":{{ COREOS_STREAM }} | \
+    set -euo pipefail
+
+    image='{{ image }}'
+    version=$(skopeo inspect "docker://${image}:{{ COREOS_STREAM }}" | \
             jq -r '.["Labels"]["org.opencontainers.image.version"]')
     if [ -z "$version" ] || [ "null" = "$version" ]; then
-      echo "inspected image ({{ image }}) version must not be empty or null" >&2
+      echo "inspected image ($image) version must not be empty or null" >&2
       exit 1
     fi
-    echo "$version"
+    printf '%s\n' "$version"
 
 upstream-image:
     #!/usr/bin/env bash
+    set -euo pipefail
+
     image='quay.io/fedora/fedora-coreos'
-    version=$(just upstream-version $image)
-    echo "$image:$version"
+    version=$(just upstream-version "$image")
+    printf '%s:%s\n' "$image" "$version"
+
+# Planned emergency CoreOS image-version override: https://github.com/ublue-os/ucore/issues/413
+stream-info output='stream-info.env':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    output='{{ output }}'
+    image=$(just upstream-version quay.io/fedora/fedora-coreos)
+    fedora=${image%%.*}
+    if [ -z "$fedora" ] || [ "null" = "$fedora" ]; then
+        echo "Fedora version must not be empty or null" >&2
+        exit 1
+    fi
+
+    kernel=$(skopeo inspect \
+        "docker://{{ AKMODS_REGISTRY }}/akmods-zfs:{{ KERNEL_FLAVOR }}-${fedora}" | \
+        jq -r '.["Labels"]["ostree.linux"]')
+    if [ -z "$kernel" ] || [ "null" = "$kernel" ]; then
+        echo "inspected linux kernel version must not be empty or null" >&2
+        exit 1
+    fi
+
+    {
+        printf 'COREOS_STREAM=%s\n' '{{ COREOS_STREAM }}'
+        printf 'KERNEL_FLAVOR=%s\n' '{{ KERNEL_FLAVOR }}'
+        printf 'FEDORA_VERSION=%s\n' "$fedora"
+        printf 'IMAGE_VERSION=%s\n' "$image"
+        printf 'KERNEL_VERSION=%s\n' "$kernel"
+    } > "$output"
+    cat "$output"
 
 containerfile upstream_image='':
     #!/usr/bin/env bash
+    set -euo pipefail
     set -x
+
+    UPSTREAM_IMAGE='{{ upstream_image }}'
+    if [ -z "$UPSTREAM_IMAGE" ]; then
+        UPSTREAM_IMAGE="$(just upstream-image)"
+    fi
+
     KERNEL_VERSION=""
     if [ -n "{{ KERNEL_VERSION }}" ]; then
         KERNEL_VERSION="-{{ KERNEL_VERSION }}"
@@ -43,14 +96,13 @@ containerfile upstream_image='':
     declare -a CPP_FLAGS
     CPP_FLAGS+=(
       "-DAKMODS_TAG={{ KERNEL_FLAVOR }}-{{ FEDORA_VERSION }}${KERNEL_VERSION}"
+      "-DAKMODS_REGISTRY={{ AKMODS_REGISTRY }}"
       "-DUCORE={{ UCORE_STREAM }}"
       "-DIMAGE_REGISTRY={{ IMAGE_REGISTRY }}"
-      "-DIMAGE_REGISTRY_SRC={{ IMAGE_REGISTRY_SRC }}"
       "-DKERNEL={{ KERNEL_FLAVOR }}"
-      "-DUPSTREAM_IMAGE={{ if upstream_image == '' { shell('just upstream-image') } else { upstream_image } }}"
+      "-DUPSTREAM_IMAGE=${UPSTREAM_IMAGE}"
     )
     if [ -n "$NVIDIA_TAG" ]; then
-      # NVIDIA_TAG=={{ NVIDIA_TAG }}
       CPP_FLAGS+=(
         "-DNVIDIA=${NVIDIA_TAG#-}"
       )
@@ -60,18 +112,76 @@ containerfile upstream_image='':
     cpp -E -P "${CPP_FLAGS[@]}" Containerfile.in -o Containerfile
     cat Containerfile
 
+# Sandbox end-to-end publication testing: https://github.com/ublue-os/ucore/issues/414
 build upstream_image='':
     #!/usr/bin/env bash
+    set -euo pipefail
     set -x
-    just containerfile {{ upstream_image }}
+
+    just containerfile "{{ upstream_image }}"
     # TODO: use LABELS_FILE to include labels in image
-    BUILD_TAG={{ CI_BUILD_TAG }}
+    BUILD_TAG='{{ CI_BUILD_TAG }}'
     if [ -z "$BUILD_TAG" ]; then
-        BUILD_TAG={{ UCORE_STREAM }}{{ NVIDIA_TAG }}
+        BUILD_TAG='{{ UCORE_STREAM }}{{ NVIDIA_TAG }}'
     fi
     podman build -f Containerfile \
-        --target {{ TARGET_IMAGE }} \
+        --target "{{ TARGET_IMAGE }}" \
         -t "{{ TARGET_IMAGE }}:${BUILD_TAG}" .
+
+ci-prepare-build upstream_image='' arch='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -x
+
+    UPSTREAM_IMAGE='{{ upstream_image }}'
+    ARCH='{{ arch }}'
+    if [ -z "$UPSTREAM_IMAGE" ]; then
+        UPSTREAM_IMAGE="$(just upstream-image)"
+    fi
+    if [ -z "$ARCH" ]; then
+        ARCH="$(uname -m)"
+    fi
+
+    if [ -z "{{ FEDORA_VERSION }}" ] || [ "null" = "{{ FEDORA_VERSION }}" ]; then
+        echo "FEDORA_VERSION must not be empty or null" >&2
+        exit 1
+    fi
+    if [ -z "$UPSTREAM_IMAGE" ] || [ "null" = "$UPSTREAM_IMAGE" ]; then
+        echo "upstream image must not be empty or null" >&2
+        exit 1
+    fi
+    if [ -z "{{ KERNEL_VERSION }}" ] || [ "null" = "{{ KERNEL_VERSION }}" ]; then
+        echo "KERNEL_VERSION must not be empty or null" >&2
+        exit 1
+    fi
+
+    if [ "{{ TARGET_IMAGE }}" != "ucore-minimal" ]; then
+        just verify-checksum "" "{{ FEDORA_VERSION }}" "$ARCH"
+    fi
+
+    AKMODS_ZFS="{{ AKMODS_REGISTRY }}/akmods-zfs:{{ KERNEL_FLAVOR }}-{{ FEDORA_VERSION }}-{{ KERNEL_VERSION }}"
+    podman pull "$UPSTREAM_IMAGE"
+    podman pull "$AKMODS_ZFS"
+    if [ -n "{{ NVIDIA_TAG }}" ]; then
+        AKMODS_NVIDIA="{{ AKMODS_REGISTRY }}/akmods{{ NVIDIA_TAG }}:{{ KERNEL_FLAVOR }}-{{ FEDORA_VERSION }}-{{ KERNEL_VERSION }}"
+        podman pull "$AKMODS_NVIDIA"
+    fi
+
+    kernel=$(podman inspect "$AKMODS_ZFS" | jq -r '.[]["Config"]["Labels"]["ostree.linux"]')
+    if [[ "{{ KERNEL_VERSION }}" != "$kernel"*  ]]; then
+        echo "pulled akmods-zfs image kernel ($kernel) does not match expected kernel ({{ KERNEL_VERSION }})" >&2
+        exit 1
+    fi
+
+    if [ -n "{{ NVIDIA_TAG }}" ]; then
+        kernel=$(podman inspect "$AKMODS_NVIDIA" | jq -r '.[]["Config"]["Labels"]["ostree.linux"]')
+        if [[ "{{ KERNEL_VERSION }}" != "$kernel"*  ]]; then
+            echo "pulled akmods{{ NVIDIA_TAG }} image kernel ($kernel) does not match expected kernel ({{ KERNEL_VERSION }})" >&2
+            exit 1
+        fi
+    fi
+
+    just containerfile "$UPSTREAM_IMAGE"
 
 # Verify one package, or all effective entries, download successfully and match the manifest checksum.
 verify-checksum package='' release='{{ FEDORA_VERSION }}' arch='':
@@ -203,3 +313,47 @@ gen-sbom image='' output='':
     export SYFT_PARALLELISM="${SYFT_PARALLELISM:-$(($(nproc) * 2))}"
     "{{ SYFT_CMD }}" --source-name "$IMAGE" "$ROOTFS" -o "spdx-json=$OUTPUT"
     du -sh "$OUTPUT"
+
+changelog stream='{{ UCORE_STREAM }}' output='' env_output='' notes_file='' max_dated_tags='20' current_artifacts_dir='' release_date='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    STREAM='{{ stream }}'
+    OUTPUT='{{ output }}'
+    ENV_OUTPUT='{{ env_output }}'
+    NOTES_FILE='{{ notes_file }}'
+    MAX_DATED_TAGS='{{ max_dated_tags }}'
+    CURRENT_ARTIFACTS_DIR='{{ current_artifacts_dir }}'
+    RELEASE_DATE='{{ release_date }}'
+
+    if [ -z "$OUTPUT" ]; then
+        OUTPUT="../audit/ucore-${STREAM}-changelog.md"
+    fi
+    if [ -z "$ENV_OUTPUT" ]; then
+        ENV_OUTPUT="../audit/ucore-${STREAM}-changelog.env"
+    fi
+
+    declare -a CMD
+    CMD=(
+        python3
+        ../.github/changelogs.py
+        --stream "$STREAM"
+        --output "$OUTPUT"
+        --env-output "$ENV_OUTPUT"
+        --image-registry "{{ IMAGE_REGISTRY }}"
+        --max-dated-tags "$MAX_DATED_TAGS"
+    )
+
+    if [ -n "$NOTES_FILE" ]; then
+        CMD+=(--notes-file "$NOTES_FILE")
+    fi
+    if [ -n "$CURRENT_ARTIFACTS_DIR" ]; then
+        CMD+=(--current-artifacts-dir "$CURRENT_ARTIFACTS_DIR")
+    fi
+    if [ -n "$RELEASE_DATE" ]; then
+        CMD+=(--release-date "$RELEASE_DATE")
+    fi
+
+    "${CMD[@]}"
+    printf 'Wrote changelog markdown to %s\n' "$OUTPUT"
+    printf 'Wrote changelog env to %s\n' "$ENV_OUTPUT"

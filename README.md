@@ -18,7 +18,10 @@ Please take a look at the included modifications, and help us improve uCore if t
     - [`ucore-hci`](#ucore-hci)
   - [Tag Matrix](#tag-matrix)
   - [Image Verification](#image-verification)
-  - [Software Bill of Materials](#software-bill-of-materials)
+  - [Build Transparency and Releases](#build-transparency-and-releases)
+    - [RPM Package Provenance](#rpm-package-provenance)
+    - [Software Bill of Materials](#software-bill-of-materials)
+    - [Releases and Changelogs](#releases-and-changelogs)
 - [Installation](#installation)
   - [Auto-Rebase Install](#auto-rebase-install)
   - [Manual Install/Rebase](#manual-installrebase)
@@ -46,6 +49,16 @@ Please take a look at the included modifications, and help us improve uCore if t
 - [Metrics](#metrics)
 
 ## Announcements
+
+### 2026.07.20 - Build Transparency: Provenance, SBOMs, and Release Changelogs
+
+Curious what changed in today's image? uCore now surfaces a bit more build transparency:
+
+- RPM package provenance from each image build
+- signed per-architecture SPDX SBOMs attached to image digests
+- generated GitHub Release changelogs for `stable`, `testing`, and `lts`
+
+See [Build Transparency and Releases](#build-transparency-and-releases) for the details.
 
 ### 2026.05.23 - uCore Fedora 44 Builds and LTS Kernel Update
 
@@ -190,6 +203,11 @@ The [tag matrix](#tag-matrix) includes combinations of the following:
 - `lts` - images based on Fedora CoreOS stable stream with longterm kernel, zfs driver and tools
 - `nvidia` - images which include latest open nvidia driver and container runtime
 - `nvidia-lts` - images which include LTS nvidia driver and container runtime
+
+CI uses `-nvidia-open` internally to select the open-driver akmods image, then publishes that
+variant under the existing `-nvidia` tags. Local builds, per-architecture CI images, and sentinel
+candidates retain the internal selector in their temporary tags; published manifests and the
+sentinel comparison target use the public tag.
 
 ### Images
 
