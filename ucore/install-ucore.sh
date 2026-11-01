@@ -4,6 +4,8 @@ set -ouex pipefail
 
 # install packages
 dnf -y install nfs-utils nfs-client-utils --allowerasing
+# Explicitly retain filesystem tools now that FCOS provides udisks2 without
+# weak dependencies: https://github.com/ublue-os/ucore/issues/453
 dnf -y install \
     NetworkManager-wifi \
     atheros-firmware \
@@ -11,6 +13,8 @@ dnf -y install \
     cockpit-storaged \
     distrobox \
     duperemove \
+    exfatprogs \
+    f2fs-tools \
     hdparm \
     iwlegacy-firmware \
     iwlwifi-dvm-firmware \
@@ -18,6 +22,11 @@ dnf -y install \
     lm_sensors \
     man-db \
     mt7xxx-firmware \
+    nilfs-utils \
+    ntfs-3g \
+    ntfs-3g-libs \
+    ntfs-3g-system-compression \
+    ntfsprogs \
     nxpwireless-firmware \
     pciutils \
     pcp-zeroconf \
@@ -28,6 +37,7 @@ dnf -y install \
     smartctl \
     snapraid \
     tiwilink-firmware \
+    udftools \
     usbutils \
     xdg-dbus-proxy \
     xdg-user-dirs
@@ -54,6 +64,17 @@ chmod +x "${FONT_FIX_SCRIPT}"
 
 rm -rf /tmp/cockpit-zfs-manager
 rm -f "${MERGERFS_RPM}" "${CZM_TGZ}" "${FONT_FIX_SCRIPT}"
+
+# pcp-selinux's %post ignores failed semodule transactions during overlay-backed
+# image builds. Install its modules explicitly in the image policy store.
+test -f /usr/share/selinux/packages/targeted/pcp.pp.bz2
+test -f /usr/share/selinux/packages/targeted/pcp-import.pp.bz2
+cp -a /etc/selinux/targeted /etc/selinux/targeted.rebuilt
+rm -rf /etc/selinux/targeted
+mv /etc/selinux/targeted.rebuilt /etc/selinux/targeted
+semodule --verbose --noreload --priority 200 --install \
+    /usr/share/selinux/packages/targeted/pcp.pp.bz2 \
+    /usr/share/selinux/packages/targeted/pcp-import.pp.bz2
 
 # tweak os-release
 sed -i '/^PRETTY_NAME/s/(uCore.*$/(uCore)"/' /usr/lib/os-release

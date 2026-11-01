@@ -46,8 +46,8 @@ dnf -y install /tmp/rpms/akmods-zfs/ucore/ublue-os-ucore-addons*.rpm
 
 dnf -y install /tmp/rpms/config/bpbeatty-signing*.rpm
 
-# Put the policy file in the correct place and cleanup /usr/etc
-cp /usr/etc/containers/policy.json /etc/containers/policy.json
+# bootc images must not contain both /etc and /usr/etc. Remove the signing
+# package's defaults before later package installs can add persistent state.
 rm -rf /usr/etc
 
 # mitigate problem on F43 where during kernel install, dracut errors and fails
@@ -83,6 +83,17 @@ dnf -y install \
 
 # Ensure kernel packages can't be updated by other dnf operations
 dnf versionlock add "$KERNEL_NAME" "$KERNEL_NAME"-core "$KERNEL_NAME"-modules "$KERNEL_NAME"-modules-core "$KERNEL_NAME"-modules-extra
+
+# Reinstalling the kernel restores devicetrees FCOS removes to fit /boot; remove them again
+# https://github.com/coreos/fedora-coreos-tracker/issues/2004
+# https://github.com/coreos/fedora-coreos-tracker/issues/2222
+if [[ "aarch64" == "${ARCH}" ]]; then
+    if [[ "${RELEASE}" -ge 45 ]]; then
+        rm -rf /usr/lib/modules/*aarch64/dtb/*
+    else
+        rm -rf /usr/lib/modules/*aarch64/dtb/qcom/
+    fi
+fi
 
 # Regenerate initramfs, for new kernel; not including NVIDIA or ZFS kmods
 QUALIFIED_KERNEL="$(rpm -qa | grep -P "$KERNEL_NAME-(\d+\.\d+\.\d+)" | sed -E "s/$KERNEL_NAME-//")"
