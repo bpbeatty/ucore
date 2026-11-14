@@ -7,14 +7,15 @@ find /tmp/* -maxdepth 0 -type d \! -name rpms -exec rm -fr {} \; || true
 find /var/* -maxdepth 0 -type d \! -name cache -exec rm -fr {} \;
 find /var/cache/* -maxdepth 0 -type d \! -name libdnf5 \! -name rpm-ostree -exec rm -fr {} \;
 
+# TODO maybe come back to this, we dont use ublue-os-signing
 # Make ublue-os-signing's policy authoritative for uCore after this stage's
 # package work; containers-common can otherwise replace it during the build.
-policy_source=/usr/share/ublue-os/signing/usr/etc/containers/policy.json
-test -f "$policy_source"
-rm -f /etc/containers/policy.json
-install -Dpm 0644 "$policy_source" /etc/containers/policy.json
-jq -e '.transports.docker["ghcr.io/ublue-os"] | any(.type == "sigstoreSigned")' \
-    /etc/containers/policy.json >/dev/null
+# policy_source=/usr/share/ublue-os/signing/usr/etc/containers/policy.json
+# test -f "$policy_source"
+# rm -f /etc/containers/policy.json
+# install -Dpm 0644 "$policy_source" /etc/containers/policy.json
+# jq -e '.transports.docker["ghcr.io/ublue-os"] | any(.type == "sigstoreSigned")' \
+#     /etc/containers/policy.json >/dev/null
 
 # Remove build-time runtime files without following symlinks or entering mounts.
 clean_runtime_dir() {
