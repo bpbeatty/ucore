@@ -1,0 +1,3 @@
+# Force the system to initialize network interfaces during early boot (initramfs phase).
+# This is required for Clevis to reach the Tang server over the network and unlock the disk.
+kargs = ["rd.neednet=1"]
